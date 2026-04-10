@@ -1,1 +1,401 @@
-xd
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Frutisa: Atrapa la Fruta</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: linear-gradient(180deg, #ffefba 0%, #ffb347 100%);
+      overflow: hidden;
+      user-select: none;
+    }
+
+    #game {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    .title {
+      position: absolute;
+      top: 12px;
+      width: 100%;
+      text-align: center;
+      font-size: 2rem;
+      font-weight: bold;
+      color: #6b240c;
+      text-shadow: 2px 2px 0 #fff4d6;
+      z-index: 10;
+      pointer-events: none;
+    }
+
+    .hud {
+      position: absolute;
+      top: 60px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 20px;
+      background: rgba(255,255,255,0.75);
+      border: 3px solid #6b240c;
+      border-radius: 18px;
+      padding: 10px 18px;
+      font-size: 1.1rem;
+      font-weight: bold;
+      color: #6b240c;
+      z-index: 10;
+    }
+
+    .basket {
+      position: absolute;
+      bottom: 30px;
+      width: 90px;
+      height: 90px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 3rem;
+      transition: transform 0.05s linear;
+      z-index: 5;
+      filter: drop-shadow(0 6px 4px rgba(0,0,0,0.25));
+    }
+
+    .falling {
+      position: absolute;
+      width: 60px;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2.5rem;
+      z-index: 4;
+      pointer-events: none;
+    }
+
+    .popup {
+      position: absolute;
+      font-size: 1.6rem;
+      font-weight: bold;
+      color: #ffffff;
+      text-shadow: 2px 2px 0 #000;
+      pointer-events: none;
+      animation: floatUp 0.8s ease-out forwards;
+      z-index: 20;
+    }
+
+    @keyframes floatUp {
+      0% { opacity: 1; transform: translateY(0) scale(1); }
+      100% { opacity: 0; transform: translateY(-50px) scale(1.2); }
+    }
+
+    .startScreen, .gameOver {
+      position: absolute;
+      inset: 0;
+      background: rgba(0,0,0,0.45);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 30;
+    }
+
+    .panel {
+      background: #fff5d6;
+      border: 5px solid #6b240c;
+      border-radius: 25px;
+      padding: 30px;
+      text-align: center;
+      width: min(90vw, 500px);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+    }
+
+    .panel h2 {
+      margin-top: 0;
+      color: #6b240c;
+      font-size: 2rem;
+    }
+
+    .panel p {
+      color: #7a3b12;
+      font-size: 1.1rem;
+      line-height: 1.5;
+    }
+
+    button {
+      background: #ff5e57;
+      border: none;
+      color: white;
+      font-size: 1.1rem;
+      font-weight: bold;
+      padding: 14px 22px;
+      border-radius: 16px;
+      cursor: pointer;
+      margin-top: 10px;
+      box-shadow: 0 5px 0 #b92f29;
+    }
+
+    button:hover {
+      transform: scale(1.04);
+    }
+
+    .footerText {
+      margin-top: 12px;
+      font-size: 0.95rem;
+      color: #7a3b12;
+    }
+  </style>
+</head>
+<body>
+  <div id="game">
+    <div class="title">🍓 FRUTISA: ATRAPA LA FRUTA 🍍</div>
+    <div class="hud">
+      <div>Puntos: <span id="score">0</span></div>
+      <div>Vidas: <span id="lives">3</span></div>
+      <div>Tiempo: <span id="time">30</span></div>
+    </div>
+
+    <div id="basket" class="basket">🧺</div>
+
+    <div id="startScreen" class="startScreen">
+      <div class="panel">
+        <h2>Bienvenido a Frutisa</h2>
+        <p>
+          Atrapa las frutas buenas 🍓🍍🥭<br>
+          y evita las cosas raras 🩴🌶️🥤
+        </p>
+        <p>
+          Muévete con <b>←</b> y <b>→</b>
+        </p>
+        <button id="startBtn">Empezar el caos</button>
+        <div class="footerText">Hecho humilde, pero con sabor.</div>
+      </div>
+    </div>
+
+    <div id="gameOver" class="gameOver" style="display:none;">
+      <div class="panel">
+        <h2>Se acabó el Frutisa</h2>
+        <p>Tu puntaje fue: <b id="finalScore">0</b></p>
+        <button id="restartBtn">Jugar otra vez</button>
+        <div class="footerText">Próximamente más juegos raros.</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const game = document.getElementById('game');
+    const basket = document.getElementById('basket');
+    const scoreEl = document.getElementById('score');
+    const livesEl = document.getElementById('lives');
+    const timeEl = document.getElementById('time');
+    const finalScoreEl = document.getElementById('finalScore');
+    const startScreen = document.getElementById('startScreen');
+    const gameOverScreen = document.getElementById('gameOver');
+    const startBtn = document.getElementById('startBtn');
+    const restartBtn = document.getElementById('restartBtn');
+
+    let basketX = window.innerWidth / 2 - 45;
+    let moveLeft = false;
+    let moveRight = false;
+    let score = 0;
+    let lives = 3;
+    let timeLeft = 30;
+    let gameRunning = false;
+    let spawnInterval;
+    let timerInterval;
+    let animationFrame;
+    const fallingItems = [];
+
+    const goodItems = [
+      { emoji: '🍓', points: 10 },
+      { emoji: '🍍', points: 12 },
+      { emoji: '🥭', points: 15 },
+      { emoji: '🍉', points: 8 }
+    ];
+
+    const badItems = [
+      { emoji: '🩴', points: -1, label: 'CHANCLAZO' },
+      { emoji: '🌶️', points: -1, label: 'PICA DEMASIADO' },
+      { emoji: '🥤', points: -1, label: 'SE TE CAYÓ LA COCA' }
+    ];
+
+    function resetGame() {
+      score = 0;
+      lives = 3;
+      timeLeft = 30;
+      basketX = window.innerWidth / 2 - 45;
+      scoreEl.textContent = score;
+      livesEl.textContent = lives;
+      timeEl.textContent = timeLeft;
+      basket.style.left = basketX + 'px';
+
+      fallingItems.forEach(item => item.el.remove());
+      fallingItems.length = 0;
+    }
+
+    function startGame() {
+      resetGame();
+      gameRunning = true;
+      startScreen.style.display = 'none';
+      gameOverScreen.style.display = 'none';
+
+      spawnInterval = setInterval(spawnItem, 700);
+      timerInterval = setInterval(() => {
+        timeLeft--;
+        timeEl.textContent = timeLeft;
+        if (timeLeft <= 0) endGame();
+      }, 1000);
+
+      gameLoop();
+    }
+
+    function endGame() {
+      gameRunning = false;
+      clearInterval(spawnInterval);
+      clearInterval(timerInterval);
+      cancelAnimationFrame(animationFrame);
+      finalScoreEl.textContent = score;
+      gameOverScreen.style.display = 'flex';
+    }
+
+    function spawnItem() {
+      if (!gameRunning) return;
+
+      const isGood = Math.random() > 0.35;
+      const data = isGood
+        ? goodItems[Math.floor(Math.random() * goodItems.length)]
+        : badItems[Math.floor(Math.random() * badItems.length)];
+
+      const el = document.createElement('div');
+      el.className = 'falling';
+      el.textContent = data.emoji;
+
+      const x = Math.random() * (window.innerWidth - 60);
+      const y = -70;
+      const speed = 2 + Math.random() * 3 + (30 - timeLeft) * 0.05;
+
+      el.style.left = x + 'px';
+      el.style.top = y + 'px';
+      game.appendChild(el);
+
+      fallingItems.push({
+        el,
+        x,
+        y,
+        speed,
+        type: isGood ? 'good' : 'bad',
+        data
+      });
+    }
+
+    function createPopup(text, x, y) {
+      const pop = document.createElement('div');
+      pop.className = 'popup';
+      pop.textContent = text;
+      pop.style.left = x + 'px';
+      pop.style.top = y + 'px';
+      game.appendChild(pop);
+      setTimeout(() => pop.remove(), 800);
+    }
+
+    function updateBasket() {
+      const speed = 7;
+      if (moveLeft) basketX -= speed;
+      if (moveRight) basketX += speed;
+
+      if (basketX < 0) basketX = 0;
+      if (basketX > window.innerWidth - 90) basketX = window.innerWidth - 90;
+
+      basket.style.left = basketX + 'px';
+    }
+
+    function checkCollision(item) {
+      const basketRect = {
+        x: basketX,
+        y: window.innerHeight - 120,
+        width: 90,
+        height: 90
+      };
+
+      const itemRect = {
+        x: item.x,
+        y: item.y,
+        width: 60,
+        height: 60
+      };
+
+      return (
+        itemRect.x < basketRect.x + basketRect.width &&
+        itemRect.x + itemRect.width > basketRect.x &&
+        itemRect.y < basketRect.y + basketRect.height &&
+        itemRect.y + itemRect.height > basketRect.y
+      );
+    }
+
+    function updateItems() {
+      for (let i = fallingItems.length - 1; i >= 0; i--) {
+        const item = fallingItems[i];
+        item.y += item.speed;
+        item.el.style.top = item.y + 'px';
+
+        if (checkCollision(item)) {
+          if (item.type === 'good') {
+            score += item.data.points;
+            scoreEl.textContent = score;
+            createPopup('+' + item.data.points, item.x, item.y);
+          } else {
+            lives--;
+            livesEl.textContent = lives;
+            createPopup(item.data.label, item.x - 20, item.y);
+            if (lives <= 0) {
+              item.el.remove();
+              fallingItems.splice(i, 1);
+              endGame();
+              return;
+            }
+          }
+
+          item.el.remove();
+          fallingItems.splice(i, 1);
+          continue;
+        }
+
+        if (item.y > window.innerHeight) {
+          item.el.remove();
+          fallingItems.splice(i, 1);
+        }
+      }
+    }
+
+    function gameLoop() {
+      if (!gameRunning) return;
+      updateBasket();
+      updateItems();
+      animationFrame = requestAnimationFrame(gameLoop);
+    }
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowLeft') moveLeft = true;
+      if (e.key === 'ArrowRight') moveRight = true;
+    });
+
+    document.addEventListener('keyup', (e) => {
+      if (e.key === 'ArrowLeft') moveLeft = false;
+      if (e.key === 'ArrowRight') moveRight = false;
+    });
+
+    startBtn.addEventListener('click', startGame);
+    restartBtn.addEventListener('click', startGame);
+
+    window.addEventListener('resize', () => {
+      if (basketX > window.innerWidth - 90) {
+        basketX = window.innerWidth - 90;
+        basket.style.left = basketX + 'px';
+      }
+    });
+  </script>
+</body>
+</html>
